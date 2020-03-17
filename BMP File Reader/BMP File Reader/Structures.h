@@ -100,8 +100,8 @@ struct BMP {
 			}
 			else
 			{
-				uint32_t row_stride = bmp_info_header.width * bmp_info_header.bit_count / 8;
-				uint32_t new_stride = make_stride_aligned(4);
+				row_stride = bmp_info_header.width * bmp_info_header.bit_count / 8;
+				uint32_t new_stride = MakeStrideAligned(4);
 				std::vector<uint8_t> padding_row(new_stride - row_stride);
 
 				for (int y = 0; y < bmp_info_header.height; ++y) {
@@ -118,14 +118,94 @@ struct BMP {
 	}
 
 	BMP(int32_t width, int32_t height, bool has_alpha = true) {
+		if (width <= 0 || height <= 0) {
+			throw std::runtime_error("The image width and height must be positive numbers.");
+		}
 
+		bmp_info_header.width = width;
+		bmp_info_header.height = height;
+		if (has_alpha) {
+			bmp_info_header.size = sizeof(BMPInfoHeaader) + sizeof(BMPColorHeader);
+			file_header.offset_data = sizeof(BMPFileHeader) + sizeof(BMPInfoHeaader) + sizeof(BMPColorHeader);
+
+			bmp_info_header.bit_count = 32;
+			bmp_info_header.compression = 3;
+			row_stride = width * 4;
+			data.resize(row_stride * height);
+			file_header.file_size = file_header.offset_data + data.size();
+		}
+		else
+		{
+			bmp_info_header.size = sizeof(BMPInfoHeaader);
+			file_header.offset_data = sizeof(BMPFileHeader) + sizeof(BMPInfoHeaader);
+
+			bmp_info_header.bit_count = 24;
+			bmp_info_header.compression = 0;
+			row_stride = width * 3;
+			data.resize(row_stride * height);
+
+			uint32_t new_stride = MakeStrideAligned(4);
+			file_header.file_size = file_header.offset_data + data.size() + bmp_info_header.height * (new_stride - row_stride);
+		}
 	}
 
 	void Write(const char* fname) {
+		std::ofstream of{ fname, std::ios_base::binary };
+		if (of) {
+			if (bmp_info_header.bit_count == 32) {
+				WriteHeaderAndData(of);
+			}
+			else if (bmp_info_header.bit_count == 24) {
+				if (bmp_info_header.width % 4 == 0) {
+					WriteHeaderAndData(of);
+				}
+				else {
+					uint32_t new_stride = MakeStrideAligned(4);
+					std::vector<uint8_t> padding_row(new_stride - row_stride);
 
+					WriteHeaders(of);
+					for (int y = 0; y < bmp_info_header.height; ++y) {
+						of.write((const char*)(data.data() + row_stride * y), row_stride);
+						of.write((const char*)padding_row.data(), padding_row.size());
+					}
+				}
+			}
+			else
+			{
+				throw std::runtime_error("The program can only treat 24 or 32 bits per pixel images");
+			}
+		}
+		else
+		{
+			throw std::runtime_error("Unable to open output image file");
+		}
 	}
 
 private:
+	uint8_t row_stride{ 0 };
+
+	void WriteHeaders(std::ofstream& of) {
+		of.write((const char*)&file_header, sizeof(file_header));
+		of.write((const char*)&bmp_info_header, sizeof(bmp_info_header));
+		if (bmp_info_header.bit_count == 32) {
+			of.write((const char*)&bmp_color_header, sizeof(bmp_color_header));
+		}
+	}
+
+	void WriteHeaderAndData(std::ofstream& of) {
+		WriteHeaders(of);
+		of.write((const char*)data.data(), data.size());
+	}
+
+	//Add 1 to row_stride until it is divisible with align_stride
+	uint32_t MakeStrideAligned(uint32_t align_stride) {
+		uint32_t new_stride = row_stride;
+		while (new_stride % align_stride != 0) {
+			new_stride++;
+		}
+		return new_stride;
+	}
+
 	//Check if the pixel data is stored in RGBA and if the color space type is sRGB
 	void CheckColorHeader(BMPColorHeader& bmp_color_header) {
 		BMPColorHeader expected_color_header;
