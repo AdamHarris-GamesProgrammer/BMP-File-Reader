@@ -13,9 +13,8 @@ struct BMPFileHeader {
 	uint16_t reserved2{ 0 }; //Reserved, always 0
 	uint32_t offset_data{ 0 }; //Start Position of the pixel data, stored in bytes from start of file
 };
-#pragma pack(pop)
 
-struct BMPInfoHeaader {
+struct BMPInfoHeader {
 	uint32_t size{ 0 }; //Size of this header
 	int32_t width{ 0 }; //Width of the bitmap in pixels
 	int32_t height{ 0 }; //Height of the bitmap in pixels
@@ -38,10 +37,11 @@ struct BMPColorHeader {
 	uint32_t color_space_type{ 0x73524742 }; //Default sRGB
 	uint32_t unused[16]{ 0 }; //Unused data for sRGB color space
 };
+#pragma pack(pop)
 
 struct BMP {
 	BMPFileHeader file_header;
-	BMPInfoHeaader bmp_info_header;
+	BMPInfoHeader bmp_info_header;
 	BMPColorHeader bmp_color_header;
 	std::vector<uint8_t> data;
 
@@ -60,7 +60,7 @@ struct BMP {
 
 			//The BMPColorHeader is used only for transparent images
 			if (bmp_info_header.bit_count == 32) {
-				if (bmp_info_header.size >= (sizeof(BMPInfoHeaader) + sizeof(BMPColorHeader))) {
+				if (bmp_info_header.size >= (sizeof(BMPInfoHeader) + sizeof(BMPColorHeader))) {
 					inp.read((char*)&bmp_color_header, sizeof(bmp_color_header));
 
 					//Check if the pixel data is stored as RGBA 
@@ -78,13 +78,13 @@ struct BMP {
 
 			//Adjusts the header files for output as some programs add additional information that is not needed
 			if (bmp_info_header.bit_count == 32) {
-				bmp_info_header.size = sizeof(BMPInfoHeaader) + sizeof(BMPColorHeader);
-				file_header.offset_data = sizeof(BMPFileHeader) + sizeof(BMPInfoHeaader) + sizeof(BMPColorHeader);
+				bmp_info_header.size = sizeof(BMPInfoHeader) + sizeof(BMPColorHeader);
+				file_header.offset_data = sizeof(BMPFileHeader) + sizeof(BMPInfoHeader) + sizeof(BMPColorHeader);
 			}
 			else
 			{
-				bmp_info_header.size = sizeof(BMPInfoHeaader);
-				file_header.offset_data = sizeof(BMPFileHeader) + sizeof(BMPInfoHeaader);
+				bmp_info_header.size = sizeof(BMPInfoHeader);
+				file_header.offset_data = sizeof(BMPFileHeader) + sizeof(BMPInfoHeader);
 			}
 			file_header.file_size = file_header.offset_data;
 
@@ -114,38 +114,6 @@ struct BMP {
 		else
 		{
 			throw std::runtime_error("Unable to open the input image file.");
-		}
-	}
-
-	BMP(int32_t width, int32_t height, bool has_alpha = true) {
-		if (width <= 0 || height <= 0) {
-			throw std::runtime_error("The image width and height must be positive numbers.");
-		}
-
-		bmp_info_header.width = width;
-		bmp_info_header.height = height;
-		if (has_alpha) {
-			bmp_info_header.size = sizeof(BMPInfoHeaader) + sizeof(BMPColorHeader);
-			file_header.offset_data = sizeof(BMPFileHeader) + sizeof(BMPInfoHeaader) + sizeof(BMPColorHeader);
-
-			bmp_info_header.bit_count = 32;
-			bmp_info_header.compression = 3;
-			row_stride = width * 4;
-			data.resize(row_stride * height);
-			file_header.file_size = file_header.offset_data + data.size();
-		}
-		else
-		{
-			bmp_info_header.size = sizeof(BMPInfoHeaader);
-			file_header.offset_data = sizeof(BMPFileHeader) + sizeof(BMPInfoHeaader);
-
-			bmp_info_header.bit_count = 24;
-			bmp_info_header.compression = 0;
-			row_stride = width * 3;
-			data.resize(row_stride * height);
-
-			uint32_t new_stride = MakeStrideAligned(4);
-			file_header.file_size = file_header.offset_data + data.size() + bmp_info_header.height * (new_stride - row_stride);
 		}
 	}
 
@@ -181,8 +149,57 @@ struct BMP {
 		}
 	}
 
+	BMP(int32_t width, int32_t height, bool has_alpha = true) {
+		if (width <= 0 || height <= 0) {
+			throw std::runtime_error("The image width and height must be positive numbers.");
+		}
+
+		bmp_info_header.width = width;
+		bmp_info_header.height = height;
+		if (has_alpha) {
+			bmp_info_header.size = sizeof(BMPInfoHeader) + sizeof(BMPColorHeader);
+			file_header.offset_data = sizeof(BMPFileHeader) + sizeof(BMPInfoHeader) + sizeof(BMPColorHeader);
+
+			bmp_info_header.bit_count = 32;
+			bmp_info_header.compression = 3;
+			row_stride = width * 4; //allows each pixel to have a B G R A value
+			data.resize(row_stride * height);
+			file_header.file_size = file_header.offset_data + data.size();
+		}
+		else {
+			bmp_info_header.size = sizeof(BMPInfoHeader);
+			file_header.offset_data = sizeof(BMPFileHeader) + sizeof(BMPInfoHeader);
+
+			bmp_info_header.bit_count = 24;
+			bmp_info_header.compression = 0;
+			row_stride = width * 3;
+			data.resize(row_stride * height);
+
+			uint32_t new_stride = MakeStrideAligned(4);
+			file_header.file_size = file_header.offset_data + static_cast<uint32_t>(data.size()) + bmp_info_header.height * (new_stride - row_stride);
+		}
+	}
+
+	void FillRegion(uint32_t x0, uint32_t y0, uint32_t w, uint32_t h, uint8_t B, uint8_t G, uint8_t R, uint8_t A) {
+		if (x0 + w > (uint32_t)bmp_info_header.width || y0 + h > (uint32_t)bmp_info_header.height) {
+			throw std::runtime_error("The region does not fit in the image!");
+		}
+
+		uint32_t channels = bmp_info_header.bit_count / 8;
+		for (uint32_t y = y0; y < y0 + h; ++y) {
+			for (uint32_t x = x0; x < x0 + w; ++x) {
+				data[channels * (y * bmp_info_header.width + x) + 0] = B;
+				data[channels * (y * bmp_info_header.width + x) + 1] = G;
+				data[channels * (y * bmp_info_header.width + x) + 2] = R;
+				if (channels == 4) {
+					data[channels * (y * bmp_info_header.width + x) + 3] = A;
+				}
+			}
+		}
+	}
+
 private:
-	uint8_t row_stride{ 0 };
+	uint32_t row_stride{ 0 };
 
 	void WriteHeaders(std::ofstream& of) {
 		of.write((const char*)&file_header, sizeof(file_header));
@@ -219,4 +236,6 @@ private:
 			throw std::runtime_error("Unexpected color space type! The program expects sRGB values");
 		}
 	}
+
+
 };
