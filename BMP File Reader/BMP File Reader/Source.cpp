@@ -40,5 +40,12 @@ int main() {
 		bmp2.Write("img_test.bmp");
 	}
 
+	std::cout << "Complicated Image Copy\n";
+	{
+		Timer time;
+		BMP bmp("SF_Fighter-Albedo.bmp");
+		bmp.Write("SF_Fighter-Albedo_COPY.bmp");
+	}
+
 	__debugbreak();
 }
