@@ -1,33 +1,42 @@
-#include "Structures.h"
+#include "BMP.h"
 #include <iostream>
+#include "Timer.h"
+
 
 int main() {
 	//Read an image from disk, modify and write it back
-	BMP bmp("Shapes.bmp");
-	bmp.Write("Shapes_copy.bmp");
+	std::cout << "Reading an image\n";
+	{
+		Timer time;
+		BMP bmp("Shapes.bmp");
+	}
 
-	//Create a BMP in memory
-	BMP bmp2(800, 600);
-	bmp2.FillRegion(50, 20, 100, 200, 0,0, 255, 255);
-	bmp2.Write("img_test.bmp");
+	std::cout << "Writing an image\n";
+	{
+		Timer time;
+		BMP bmp(800, 600);
+		bmp.Write("Benchmark.bmp");
+	}
 
-	//Create a 24bit per pixel image (RGB) and save it
-	BMP bmp3(209, 203, false);
-	bmp3.FillRegion(50, 20, 100, 100, 255, 0, 255, 255);
-	bmp3.Write("test_24bits.bmp");
+	std::cout << "Reading and then copying an image\n";
+	{
+		Timer time;
+		BMP bmp("Shapes.bmp");
+		bmp.Write("Shapes_copy.bmp");
+	}
 
-	BMP bmp4("Shapes.bmp");
-	bmp4.FillRegion(0, 0, 300, 400, 0xFF, 0x00, 0x4E, 0xFF);
-	bmp4.Write("Testing.bmp");
+	std::cout << "Creating a BMP in memory with one fill region\n";
+	{
+		Timer time;
+		BMP bmp2(800, 600);
+		bmp2.FillRegion(50, 20, 100, 200, 0, 0, 255, 255);
+	}
 
-	BMP bmp5(1024, 768, false);
-	//I
-	bmp5.FillRegion(1024 / 2 - 160, 64, 96, 32, 0xff, 0x00, 0x00, 0xff);
-	bmp5.FillRegion(1024 / 2 - 128, 96, 32, 32, 0xff, 0x00, 0x00, 0xff);
-	bmp5.FillRegion(1024 / 2 - 160, 128, 96, 32, 0xff, 0x00, 0x00, 0xff);
-	//T
-	bmp5.FillRegion(1024 / 2, 128, 96, 32, 0xff, 0x00, 0x00, 0xff);
-	bmp5.FillRegion(1024 / 2 + 32, 64, 32, 96, 0xff, 0x00, 0x00, 0xff);
-
-	bmp5.Write("It Works.bmp");
+	std::cout << "Creating a BMP in memory with one fill region and then writing to file\n";
+	{
+		Timer time;
+		BMP bmp2(800, 600);
+		bmp2.FillRegion(50, 20, 100, 200, 0, 0, 255, 255);
+		bmp2.Write("img_test.bmp");
+	}
 }

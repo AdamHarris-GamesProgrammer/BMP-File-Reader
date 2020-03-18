@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include "Timer.h"
 
 #pragma pack(push, 1)
 struct BMPFileHeader {
