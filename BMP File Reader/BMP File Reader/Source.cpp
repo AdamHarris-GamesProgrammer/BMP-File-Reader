@@ -39,4 +39,6 @@ int main() {
 		bmp2.FillRegion(50, 20, 100, 200, 0, 0, 255, 255);
 		bmp2.Write("img_test.bmp");
 	}
+
+	__debugbreak();
 }

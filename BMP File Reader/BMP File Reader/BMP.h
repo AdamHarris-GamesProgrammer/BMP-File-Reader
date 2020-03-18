@@ -93,7 +93,7 @@ struct BMP {
 				throw std::runtime_error("The program can only use BMP images with the origin in the bottom left corner!");
 			}
 
-			data.resize(bmp_info_header.width * bmp_info_header.height * bmp_info_header.bit_count / 8); //(8 converts from bits to bytes)
+			data.reserve(bmp_info_header.width * bmp_info_header.height * bmp_info_header.bit_count / 8); //(8 converts from bits to bytes)
 
 			if (bmp_info_header.width % 4 == 0) {
 				inp.read((char*)data.data(), data.size());
@@ -164,7 +164,7 @@ struct BMP {
 			bmp_info_header.bit_count = 32;
 			bmp_info_header.compression = 3;
 			row_stride = width * 4; //allows each pixel to have a B G R A value
-			data.resize(row_stride * height);
+			data.reserve(row_stride * height);
 			file_header.file_size = file_header.offset_data + data.size();
 		}
 		else {
@@ -174,7 +174,7 @@ struct BMP {
 			bmp_info_header.bit_count = 24;
 			bmp_info_header.compression = 0;
 			row_stride = width * 3;
-			data.resize(row_stride * height);
+			data.reserve(row_stride * height);
 
 			uint32_t new_stride = MakeStrideAligned(4);
 			file_header.file_size = file_header.offset_data + static_cast<uint32_t>(data.size()) + bmp_info_header.height * (new_stride - row_stride);
