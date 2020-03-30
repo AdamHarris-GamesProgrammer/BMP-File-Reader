@@ -176,6 +176,7 @@ struct BMP {
 			bmp_info_header.bit_count = 24;
 			bmp_info_header.compression = 0;
 			row_stride = width * 3;
+			data.reserve(row_stride * height);
 			data.resize(row_stride * height);
 
 			uint32_t new_stride = MakeStrideAligned(4);
